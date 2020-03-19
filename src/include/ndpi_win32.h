@@ -24,7 +24,15 @@
 #ifndef __NDPI_WIN32_H__
 #define __NDPI_WIN32_H__
 
+// fix a MinGW build issue "error: multiple storage classes in declaration specifiers" due to MinGW
+// defining extern for __forceinline types
+#if (defined(__MINGW32__) || defined(__MINGW64__)) && defined(__GNUC__)
+#define MINGW_GCC
+#define __mingw_forceinline __inline__ __attribute__((__always_inline__,__gnu_inline__))
+#endif
+
 #include <winsock2.h>
+#include <windows.h>
 #include <ws2tcpip.h>
 #include <process.h>
 #include <io.h>
@@ -40,7 +48,7 @@
 
 #define	IPVERSION	4 /* on *nix it is defined in netinet/ip.h */ 
 
-extern char* strsep(char **sp, const char *sep);
+extern char* strsep(char **sp, char *sep);
 
 typedef unsigned char  u_char;
 typedef unsigned short u_short;
@@ -67,6 +75,11 @@ typedef unsigned       __int64 u_int64_t;
 
 extern unsigned long waitForNextEvent(unsigned long ulDelay /* ms */);
 
-#define sleep(a /* sec */) waitForNextEvent(1000*a /* ms */)
+#define sleep(a /* sec */)              waitForNextEvent(1000*a /* ms */)
+#ifndef localtime_r
+#define localtime_r(a, b)               localtime_s(b, a)
+#endif
+#define strtok_r                        strtok_s
+#define timegm                          _mkgmtime
 
 #endif /* __NDPI_WIN32_H__ */

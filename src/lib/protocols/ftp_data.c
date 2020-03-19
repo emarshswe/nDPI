@@ -1,7 +1,7 @@
 /*
  * ftp_data.c
  *
- * Copyright (C) 2016 - ntop.org
+ * Copyright (C) 2016-20 - ntop.org
  * 
  * The signature is based on the Libprotoident library.
  *
@@ -23,9 +23,12 @@
  * 
  */
 
+#include "ndpi_protocol_ids.h"
+
+#define NDPI_CURRENT_PROTO NDPI_PROTOCOL_FTP_DATA
+
 #include "ndpi_api.h"
 
-#ifdef NDPI_PROTOCOL_FTP_DATA
 static void ndpi_int_ftp_data_add_connection(struct ndpi_detection_module_struct *ndpi_struct, struct ndpi_flow_struct *flow) {
   ndpi_set_detected_protocol(ndpi_struct, flow, NDPI_PROTOCOL_FTP_DATA, NDPI_PROTOCOL_UNKNOWN);
 }
@@ -46,11 +49,19 @@ static int ndpi_match_ftp_data_directory(struct ndpi_detection_module_struct *nd
   struct ndpi_packet_struct *packet = &flow->packet;
   u_int32_t payload_len = packet->payload_packet_len;
 
-  if((payload_len >= 4)
-      && ((packet->payload[0] == '-') || (packet->payload[0] == 'd'))
-      && ((packet->payload[1] == '-') || (packet->payload[1] == 'r'))
-      && ((packet->payload[2] == '-') || (packet->payload[2] == 'w'))
-      && ((packet->payload[3] == '-') || (packet->payload[3] == 'x'))) {
+  if(payload_len > 10) {
+    int i;
+
+    if(!((packet->payload[0] == '-') || (packet->payload[0] == 'd')))
+      return(0);
+  
+    for(i=0; i<9; i += 3)
+      if(((packet->payload[1+i] == '-') || (packet->payload[1+i] == 'r'))
+	 && ((packet->payload[2+i] == '-') || (packet->payload[2+i] == 'w'))
+	 && ((packet->payload[3+i] == '-') || (packet->payload[3+i] == 'x'))) {
+	;
+      } else
+	return 0;
 
     return 1;
   }
@@ -217,28 +228,35 @@ static int ndpi_match_file_header(struct ndpi_detection_module_struct *ndpi_stru
 static void ndpi_check_ftp_data(struct ndpi_detection_module_struct *ndpi_struct, struct ndpi_flow_struct *flow) {
   struct ndpi_packet_struct *packet = &flow->packet;
 
-  if((packet->payload_packet_len > 0)
-     && (ndpi_match_file_header(ndpi_struct, flow)
-	 || ndpi_match_ftp_data_directory(ndpi_struct, flow) 
-	 || ndpi_match_ftp_data_port(ndpi_struct, flow)
-	 )
-     ) {
-    NDPI_LOG(NDPI_PROTOCOL_FTP_DATA, ndpi_struct, NDPI_LOG_DEBUG, "Possible FTP_DATA request detected...\n");
-    ndpi_int_ftp_data_add_connection(ndpi_struct, flow);
-  } else
-    NDPI_ADD_PROTOCOL_TO_BITMASK(flow->excluded_protocol_bitmask, NDPI_PROTOCOL_FTP_DATA);  
+  /*
+    Make sure we see the beginning of the connection as otherwise we might have
+    false positive results
+  */
+  if(flow->l4.tcp.seen_syn) {
+    if((packet->payload_packet_len > 0)
+       && (ndpi_match_file_header(ndpi_struct, flow)
+	   || ndpi_match_ftp_data_directory(ndpi_struct, flow) 
+	   || ndpi_match_ftp_data_port(ndpi_struct, flow)
+	   )
+       ) {
+      NDPI_LOG_INFO(ndpi_struct, "found FTP_DATA request\n");
+      ndpi_int_ftp_data_add_connection(ndpi_struct, flow);
+      return;
+    }
+  }
+  
+  NDPI_EXCLUDE_PROTO(ndpi_struct, flow);
 }
 
 void ndpi_search_ftp_data(struct ndpi_detection_module_struct *ndpi_struct, struct ndpi_flow_struct *flow) {
 	
   /* Break after 20 packets. */
   if(flow->packet_counter > 20) {
-    NDPI_LOG(NDPI_PROTOCOL_FTP_DATA, ndpi_struct, NDPI_LOG_DEBUG, "Exclude FTP_DATA.\n");
-    NDPI_ADD_PROTOCOL_TO_BITMASK(flow->excluded_protocol_bitmask, NDPI_PROTOCOL_FTP_DATA);
+    NDPI_EXCLUDE_PROTO(ndpi_struct, flow);
     return;
   }
 
-  NDPI_LOG(NDPI_PROTOCOL_FTP_DATA, ndpi_struct, NDPI_LOG_DEBUG, "FTP_DATA detection...\n");
+  NDPI_LOG_DBG(ndpi_struct, "search FTP_DATA\n");
   ndpi_check_ftp_data(ndpi_struct, flow);
 }
 
@@ -254,5 +272,3 @@ void init_ftp_data_dissector(struct ndpi_detection_module_struct *ndpi_struct, u
 
   *id += 1;
 }
-
-#endif
