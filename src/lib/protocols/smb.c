@@ -1,7 +1,7 @@
 /*
  * smb.c
  *
- * Copyright (C) 2016-20 - ntop.org
+ * Copyright (C) 2016-21 - ntop.org
  *
  * This file is part of nDPI, an open source deep packet inspection
  * library based on the OpenDPI and PACE technology by ipoque GmbH
@@ -21,7 +21,7 @@
  *
  */
 #include "ndpi_protocol_ids.h"
-
+#define NDPI_CURRENT_PROTO NDPI_PROTOCOL_SMBV23
 #include "ndpi_api.h"
 
 
@@ -44,8 +44,9 @@ void ndpi_search_smb_tcp(struct ndpi_detection_module_struct *ndpi_struct, struc
       NDPI_LOG_INFO(ndpi_struct, "found SMB\n");
 
       if(memcmp(&packet->payload[4], smbv1, sizeof(smbv1)) == 0) {
-	if(packet->payload[8] != 0x72) /* Skip Negotiate request */ {
+	if(packet->payload[8] != 0x72) /* Skip Negotiate request */ {	  
 	  ndpi_set_detected_protocol(ndpi_struct, flow, NDPI_PROTOCOL_SMBV1, NDPI_PROTOCOL_NETBIOS);
+	  ndpi_set_risk(flow, NDPI_SMB_INSECURE_VERSION);
 	}
       } else
 	ndpi_set_detected_protocol(ndpi_struct, flow, NDPI_PROTOCOL_SMBV23, NDPI_PROTOCOL_NETBIOS);

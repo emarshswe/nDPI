@@ -1,8 +1,8 @@
 /*
  * memcached.c
  *
- * Copyright (C) 2009-2011 by ipoque GmbH
- * Copyright (C) 2011-20 - ntop.org
+ * Copyright (C) 2009-11 - ipoque GmbH
+ * Copyright (C) 2011-21 - ntop.org
  * Copyright (C) 2018 - eGloo Incorporated
  *
  * This file is part of nDPI, an open source deep packet inspection
@@ -173,6 +173,8 @@ void ndpi_search_memcached(
 
   if (*matches >= MEMCACHED_MIN_MATCH)
     ndpi_int_memcached_add_connection(ndpi_struct, flow);
+  else if(flow->packet_counter > 5)
+    NDPI_EXCLUDE_PROTO(ndpi_struct, flow);    
 }
 
 void init_memcached_dissector(
